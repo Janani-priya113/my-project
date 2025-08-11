@@ -13,6 +13,7 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
+                    python3 -m ensurepip --upgrade || sudo apt-get update && sudo apt-get install -y python3-pip
                     python3 -m pip install --upgrade pip
                     pip install -r requirements.txt
                 '''
@@ -39,3 +40,4 @@ pipeline {
         }
     }
 }
+
