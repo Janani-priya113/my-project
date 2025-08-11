@@ -2,23 +2,32 @@ pipeline {
     agent any
 
     environment {
-        TEST_EXEC_KEY = 'IT-4'
-        TEST_KEY = 'IT-3'
+        // These are Jenkins credential IDs (configure in Jenkins UI)
+        XRAY_CLIENT_ID     = credentials('xray-client-id')
+        XRAY_CLIENT_SECRET = credentials('xray-client-secret')
     }
 
     stages {
-        stage('Setup Environment') {
+        stage('Checkout Code') {
+            steps {
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[
+                        url: 'git@github.com:Janani-priya113/my-project.git',
+                        credentialsId: 'github-ssh-key' // Your Jenkins SSH key credential ID
+                    ]]
+                ])
+            }
+        }
+
+        stage('Install Dependencies') {
             steps {
                 sh '''
-                    # Ensure Python and pip exist
-                    if ! command -v python3 &> /dev/null; then
-                        echo "Python3 not found. Please install it on Jenkins node."
-                        exit 1
-                    fi
-
-                    # Ensure pytest is installed
-                    python3 -m pip install --user pytest
-                    export PATH=$PATH:~/.local/bin
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    pip install --upgrade pip
+                    pip install pytest
                 '''
             }
         }
@@ -26,8 +35,8 @@ pipeline {
         stage('Run Tests') {
             steps {
                 sh '''
-                    mkdir -p logs
-                    pytest --tb=short -q tests/ > logs/logs.txt 2>&1 || true
+                    . venv/bin/activate
+                    pytest --tb=short -q tests/ | tee logs.txt
                 '''
             }
         }
@@ -35,52 +44,34 @@ pipeline {
         stage('Prepare JSON for Xray') {
             steps {
                 script {
-                    def logsBase64 = sh(script: 'base64 -w0 logs/logs.txt', returnStdout: true).trim()
-                    writeFile file: 'results.json', text: """
-                    {
-                      "testExecutionKey": "${TEST_EXEC_KEY}",
-                      "info": {
-                        "summary": "Version creation pipeline results",
-                        "description": "Automated execution of version creation test"
-                      },
-                      "tests": [
-                        {
-                          "testKey": "${TEST_KEY}",
-                          "status": "FAIL",
-                          "comment": "Version creation failed - see logs",
-                          "evidences": [
-                            {
-                              "data": "${logsBase64}",
-                              "filename": "logs.txt",
-                              "contentType": "text/plain"
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                    """
+                    def logBase64 = sh(script: "base64 -w0 logs.txt", returnStdout: true).trim()
+                    writeFile file: 'results.json', text: """{
+                        "testExecutionKey": "TEST-123",
+                        "info": {
+                            "summary": "Automated test execution",
+                            "description": "Results uploaded from Jenkins"
+                        },
+                        "logs": "${logBase64}"
+                    }"""
                 }
             }
         }
 
         stage('Upload Results to Xray') {
             steps {
-                withCredentials([
-                    string(credentialsId: 'xray-client-id', variable: 'XRAY_CLIENT_ID'),
-                    string(credentialsId: 'xray-client-secret', variable: 'XRAY_CLIENT_SECRET')
-                ]) {
-                    sh '''
-                        TOKEN=$(curl -s -H "Content-Type: application/json" \
-                            -d '{"client_id":"'$XRAY_CLIENT_ID'","client_secret":"'$XRAY_CLIENT_SECRET'"}' \
-                            https://xray.cloud.getxray.app/api/v2/authenticate | tr -d '"')
-
-                        curl -s -H "Authorization: Bearer $TOKEN" \
-                            -H "Content-Type: application/json" \
-                            -d @results.json \
-                            https://xray.cloud.getxray.app/api/v2/import/execution
-                    '''
-                }
+                sh '''
+                    curl -X POST -H "Content-Type: application/json" \
+                         -u $XRAY_CLIENT_ID:$XRAY_CLIENT_SECRET \
+                         --data @results.json \
+                         https://xray.cloud.getxray.app/api/v2/import/execution
+                '''
             }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'logs.txt, results.json', onlyIfSuccessful: false
         }
     }
 }
