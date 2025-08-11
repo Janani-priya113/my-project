@@ -1,8 +1,8 @@
 pipeline {
     agent any
     environment {
-        XRAY_CLIENT_ID = credentials('F9904F2A07584DF694A61E36E7AE4EB1')
-        XRAY_CLIENT_SECRET = credentials('70764cd4c0252d388a60de53f3d08f68829a7526be1f213eaeff7cde5dba9f5c')
+        XRAY_CLIENT_ID = credentials('xray-client-id')
+        XRAY_CLIENT_SECRET = credentials('xray-client-secret')
         TEST_EXEC_KEY = 'IT-4'  // Replace with your Xray Test Execution key
         TEST_KEY = 'IT-3'       // Replace with your Xray Test key
     }
@@ -58,3 +58,4 @@ pipeline {
         }
     }
 }
+
