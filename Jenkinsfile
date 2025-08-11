@@ -2,19 +2,23 @@ pipeline {
     agent any
 
     environment {
-        TEST_EXEC_KEY = 'IT-4'  // Replace with your Xray Test Execution key
-        TEST_KEY = 'IT-3'       // Replace with your Xray Test key
+        TEST_EXEC_KEY = 'IT-4'
+        TEST_KEY = 'IT-3'
     }
 
     stages {
         stage('Setup Environment') {
             steps {
                 sh '''
-                    # Install pytest if missing
-                    if ! command -v pytest &> /dev/null; then
-                        pip install --user pytest
-                        export PATH=$PATH:~/.local/bin
+                    # Ensure Python and pip exist
+                    if ! command -v python3 &> /dev/null; then
+                        echo "Python3 not found. Please install it on Jenkins node."
+                        exit 1
                     fi
+
+                    # Ensure pytest is installed
+                    python3 -m pip install --user pytest
+                    export PATH=$PATH:~/.local/bin
                 '''
             }
         }
@@ -23,7 +27,7 @@ pipeline {
             steps {
                 sh '''
                     mkdir -p logs
-                    pytest --tb=short -q tests/ > logs/logs.txt || true
+                    pytest --tb=short -q tests/ > logs/logs.txt 2>&1 || true
                 '''
             }
         }
