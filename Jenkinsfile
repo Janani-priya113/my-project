@@ -14,7 +14,7 @@ pipeline {
                     branches: [[name: '*/main']],
                     userRemoteConfigs: [[
                         url: 'git@github.com:Janani-priya113/my-project.git',
-                        credentialsId: 'github-ssh-key' // Jenkins SSH key ID
+                        credentialsId: 'github-ssh-key' // SSH key ID in Jenkins
                     ]]
                 ])
             }
@@ -23,6 +23,11 @@ pipeline {
         stage('Run Tests') {
             steps {
                 sh '''
+                    if ! command -v pytest >/dev/null 2>&1; then
+                        echo "pytest not found, installing..."
+                        pip install --user pytest
+                        export PATH=$PATH:$HOME/.local/bin
+                    fi
                     pytest --tb=short -q tests/ | tee logs.txt
                 '''
             }
