@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     environment {
-        // These are Jenkins credential IDs (configure in Jenkins UI)
         XRAY_CLIENT_ID     = credentials('xray-client-id')
         XRAY_CLIENT_SECRET = credentials('xray-client-secret')
     }
@@ -15,27 +14,15 @@ pipeline {
                     branches: [[name: '*/main']],
                     userRemoteConfigs: [[
                         url: 'git@github.com:Janani-priya113/my-project.git',
-                        credentialsId: 'github-ssh-key' // Your Jenkins SSH key credential ID
+                        credentialsId: 'github-ssh-key' // Jenkins SSH key ID
                     ]]
                 ])
-            }
-        }
-
-        stage('Install Dependencies') {
-            steps {
-                sh '''
-                    python3 -m venv venv
-                    . venv/bin/activate
-                    pip install --upgrade pip
-                    pip install pytest
-                '''
             }
         }
 
         stage('Run Tests') {
             steps {
                 sh '''
-                    . venv/bin/activate
                     pytest --tb=short -q tests/ | tee logs.txt
                 '''
             }
